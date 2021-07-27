@@ -22,7 +22,7 @@ Original file is located at
 #from __future__ import print_function
 import os
 import neat
-import visualize
+#import visualize
 
 import pickle # to save the genome
 
@@ -35,6 +35,8 @@ from scipy.integrate import solve_ivp
 import matplotlib.pyplot as plt
 
 #Variáveis globais
+# Número de agentes 
+N = 5
 R = 5 #numero de agentes
 T = 100 #tempo máximo
 h = 0.1     # passo da integracao
@@ -47,8 +49,15 @@ THETA_MAX = 2*np.pi #angulo máximo de um agente
 D_MAX = 25 #distancia máxima detectada pelo sensor
 
 
-print_percent = 100
+
+print_percent = 200
 global_tt = 0
+
+# Variables that are used several times
+TWO_PI = 2.0 * np.pi
+TWO_RADIUS = 2*RAIO
+ttt = np.arange(0, T, h)
+
 
 """###Sensor"""
 
@@ -60,8 +69,8 @@ global_tt = 0
 def rot_ang(theta): 
   while (theta < 0):
     theta +=  np.pi;
-  while (theta >= 2.0 * np.pi):
-    theta -= 2.0 * np.pi; 
+  while (theta >= TWO_PI):
+    theta -= TWO_PI; 
   return theta
 
 def rot_angs(beta):
@@ -86,7 +95,7 @@ def octantes(alpha, beta, angulos, dx, dy, max, raio):
             #print(f'colocou a dist {np.around(dist[k]- 2*raio,2)} em {i+1}')
             d_octa[i] = dist[k] - 2*raio
         else: 
-          if (((alpha[k]) >= (angulos[i]-2*np.pi)) and ((alpha[k]) < angulos[i+1]) and (d_octa[i] > dist[k] - 2*raio)):
+          if (((alpha[k]) >= (angulos[i]-TWO_PI)) and ((alpha[k]) < angulos[i+1]) and (d_octa[i] > dist[k] - 2*raio)):
             #print(f'colocou a dist {np.around(dist[k]- 2*raio,2)} em {i+1}')
             d_octa[i] = dist[k] - 2*raio
   return d_octa 
@@ -137,7 +146,7 @@ def sensor(u, idd, max, raio, P):
 
   for i in range(9):
     if (i>0 and angulos[i]==0):
-      angulos[i] = 2*np.pi
+      angulos[i] = TWO_PI
 
   octan = -100
   alpha = np.arctan(np.divide(dy,dx))
@@ -186,7 +195,7 @@ def distancia(x, y):
 def distancia_inicial(u, P, R, RAIO):
 	inicialDist = [0]*R #distancia inicial do robo ao ponto de parada
 	for r in range(R):
-	  inicialDist[r] = distancia(u[0][r*4]-P[0], u[0][r*4+1]-P[1]) - 2*RAIO
+	  inicialDist[r] = distancia(u[0][r*4]-P[0], u[0][r*4+1]-P[1]) - TWO_RADIUS
 	return inicialDist
 
 #Calcula distancia em um tempo t de cada agente ao ponto de parada
@@ -195,14 +204,14 @@ def distParada(u, P, R, t):
   for r in range(R):
     x = u[t][r*4] - P[0]
     y = u[t][r*4 +1] - P[1]
-    distr[r] = distancia(x,y) - 2*RAIO
+    distr[r] = distancia(x,y) - TWO_RADIUS
   return distr
 
 #Calcula distancia mínima entre os agentes num tempo t
 def min_dist(u, t, RAIO, R):
 	dx = u[t][0] - u[t][0]
 	dy = u[t][1] - u[t][1]
-	minDist = np.sqrt(np.square(dx) + np.square(dy)) - 2*RAIO
+	minDist = np.sqrt(np.square(dx) + np.square(dy)) - TWO_RADIUS
 	for i in range(R):
 		for j in range(R):
 			dx = u[t][i*4] - u[t][j*4]
@@ -253,14 +262,14 @@ def pos_partida(R, LIMITE_X, LIMITE_Y, THETA_MAX, SPEED_MAX, RAIO):
     dist = [3*RAIO]*R
     for i in range(r):
       dist[i] = distancia(u[r*4]- u[i*4], u[r*4+1]-u[i*4+1])
-    while (min(dist) < 2*RAIO):
+    while (min(dist) < TWO_RADIUS):
       u[r*4] = rd.random()*LIMITE_X #x
       u[r*4+1] =rd.random()*LIMITE_Y  # y
       dist = [3*RAIO]*R
       for i in range(r):
         dist[i] = distancia(u[r*4]- u[i*4], u[r*4+1]-u[i*4+1])
 
-    u[r*4+2] =rd.random()*2*(np.pi) #aleatorio de 0 a 2*pi
+    u[r*4+2] =rd.random()*TWO_PI #aleatorio de 0 a 2*pi
     u[r*4+3] = rd.random()*SPEED_MAX #velocidade aleatoria
   return u
 
@@ -302,25 +311,25 @@ def printTrajetory(u):
 
 """Neat + simulação"""
 
-# Número de agentes 
-N = 5
+
 
 
 #Função model
-def model(t, u, N, genome, config):
-  global global_tt
+def model(t, u, N, net):
+  #global global_tt
+
+  #cria uma rede (como eh a mesma para todos, cria-se apenas uma vez)
+  #net = neat.nn.FeedForwardNetwork.create(genome, config)
 
   dudt = []
   #Para cada agente 
   for i in range(N):
     #simula os sensores
     octantes_new = sensor(u, i, D_MAX, RAIO, PONTO_DE_PARADA)
-    #cria uma rede
-    net = neat.nn.FeedForwardNetwork.create(genome, config)
+    
     net_output = net.activate(octantes_new)
-
-    if (global_tt % print_percent == 0) and (i == 0) and (int(t) == 200):
-      print(net_output)
+    #if (global_tt % print_percent == 0) and (i == 0) and (int(t) == 200):
+    #  print(net_output)
 
     # Verificar velocidade angular e linear e não deixar o robô ultrapassar o maximo permitido
     theta_agent_i = u[i*4 + 2]
@@ -329,40 +338,44 @@ def model(t, u, N, genome, config):
     theta_dot = net_output[0]
     s_dot = net_output[1]
 
-    #if abs(theta_dot) > np.pi * h:
-    #  theta_dot = 0.0
+    # max angular velocity
+    if theta_dot > 0.6*h:
+      theta_dot = 0.6*h
+    elif theta_dot < -0.6*h:
+      theta_dot = -0.6*h
 
+    # max speed
     if s_i + s_dot > SPEED_MAX:
       s_dot = 0.0
     elif s_i + s_dot < 0:
       s_dot = 0.0
 
-    #determina as derivadas com a saida sa rede
+    #determina as derivadas com a saida da rede
     dudt.append(u[i*4+3]*np.cos(u[i*4+2]))
     dudt.append(u[i*4+3]*np.sin(u[i*4+2]))
     dudt.append(theta_dot)
     dudt.append(s_dot)
   return dudt
 
-def simulacao(genome, config): 
+def simulacao(net): 
   global global_tt
 
 	#Determina posições iniciais dos agentes dentro de uma area delimitada
   #por LIMITE_X e LIMITE_Y
   u = pos_partida(R, LIMITE_X, LIMITE_Y, THETA_MAX, SPEED_MAX, RAIO)
-  sol = solve_ivp(model, [0, T], u, args=(N, genome, config), dense_output=True)
+  sol = solve_ivp(model, [0, T], u, args=(N, net), dense_output=True)
   #tempo de integracao: esta funcao gera uma sequencia que inicia em zero e vai ate tf, com passo h
-  t = np.arange(0, T, h)
+  t = ttt
   u = sol.sol(t)
   f = f_homming(u)
 
   if global_tt % print_percent == 0:
-    #Preenhe arquivo tragetory
-    Trajectory(u, t)
-    #Mostra tragetoria
+    #Preenhe arquivo trajectory
+    #Trajectory(u, t)
+    #Mostra trajetoria
     printTrajetory(u)
 
-    print(f"f_homming = {f} \n")
+  print(f"global_tt = {global_tt} | f_homming = {f}")
   global_tt += 1
   
   return f
@@ -371,10 +384,12 @@ def simulacao(genome, config):
 def eval_genomes(genomes, config):
   for genome_id, genome in genomes:
     #genome.fitness = 0.0
-    #net = neat.nn.FeedForwardNetwork.create(genome, config)
+
+    #cria uma rede (como eh a mesma para todos, cria-se apenas uma vez)
+    net = neat.nn.FeedForwardNetwork.create(genome, config)
     #octantes_new = sensor(u, 0, D_MAX, RAIO, PONTO_DE_PARADA)
     #output = net.activate(octantes_new)
-    genome.fitness = simulacao(genome, config)
+    genome.fitness = simulacao(net)
     #print(genome_id)
 
 def run(config_file):
@@ -390,7 +405,7 @@ def run(config_file):
   p.add_reporter(neat.StdOutReporter(True))
   stats = neat.StatisticsReporter()
   p.add_reporter(stats)
-  p.add_reporter(neat.Checkpointer(5))
+  p.add_reporter(neat.Checkpointer(20))
 
   # Run for up to 300 generations.
   winner = p.run(eval_genomes, 2000)
@@ -402,7 +417,7 @@ def run(config_file):
   # Display the winning genome.
   print('\nBest genome:\n{!s}'.format(winner))
 
-  visualize.draw_net(config, winner, True)
+  #visualize.draw_net(config, winner, True)
     
 if __name__ == '__main__':
   # Determine path to configuration file. This path manipulation is
