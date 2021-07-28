@@ -38,13 +38,13 @@ import matplotlib.pyplot as plt
 # Número de agentes 
 N = 5
 R = 5 #numero de agentes
-T = 100 #tempo máximo
+T = 200 #tempo máximo
 h = 0.1     # passo da integracao
 RAIO = 20 #raio do robo
-LIMITE_X = 200
-LIMITE_Y = 50
+LIMITE_X = 100
+LIMITE_Y = 100
 SPEED_MAX = 0.8 #m/s
-PONTO_DE_PARADA = [50, 300]
+PONTO_DE_PARADA = [200, 200]
 THETA_MAX = 2*np.pi #angulo máximo de um agente
 D_MAX = 25 #distancia máxima detectada pelo sensor
 
@@ -57,6 +57,10 @@ global_tt = 0
 TWO_PI = 2.0 * np.pi
 TWO_RADIUS = 2*RAIO
 ttt = np.arange(0, T, h)
+RtimesT = R*T
+THETA_DOT_MAX = 0.6*h
+INDEX = np.arange(0,R*4,4)
+
 
 
 """###Sensor"""
@@ -68,7 +72,7 @@ ttt = np.arange(0, T, h)
 # Função para deixar um angulo entre 0 e 2pi
 def rot_ang(theta): 
   while (theta < 0):
-    theta +=  np.pi;
+    theta +=  TWO_PI;
   while (theta >= TWO_PI):
     theta -= TWO_PI; 
   return theta
@@ -104,9 +108,9 @@ def sensor(u, idd, max, raio, P):
  
   # Referencia: agente i
   # Agente vizinho (neighbor): agente n
-  x_i = u[idd*4] #Cordenada x do agente de referencia
-  y_i = u[idd*4 + 1] #Cordenada y agente de referencia
-  theta_agent_i = u[idd*4 + 2]  #Theta do agente de referencia (em radianos)
+  x_i = u[INDEX[idd]] #Cordenada x do agente de referencia
+  y_i = u[INDEX[idd] + 1] #Cordenada y agente de referencia
+  theta_agent_i = u[INDEX[idd] + 2]  #Theta do agente de referencia (em radianos)
   #max = 25.0
   #r = 14.08
 
@@ -202,8 +206,8 @@ def distancia_inicial(u, P, R, RAIO):
 def distParada(u, P, R, t):
   distr=[0]*R
   for r in range(R):
-    x = u[t][r*4] - P[0]
-    y = u[t][r*4 +1] - P[1]
+    x = u[t][INDEX[r]] - P[0]
+    y = u[t][INDEX[r] +1] - P[1]
     distr[r] = distancia(x,y) - TWO_RADIUS
   return distr
 
@@ -214,31 +218,34 @@ def min_dist(u, t, RAIO, R):
 	minDist = np.sqrt(np.square(dx) + np.square(dy)) - TWO_RADIUS
 	for i in range(R):
 		for j in range(R):
-			dx = u[t][i*4] - u[t][j*4]
-			dy = u[t][i*4+1] - u[t][j*4+1]
+			dx = u[t][INDEX[i]] - u[t][INDEX[j]]
+			dy = u[t][INDEX[i]+1] - u[t][INDEX[j]+1]
 			dist = distancia(dx,dy) - 2*R
 			if (dist < minDist):
 				minDist = dist
 	return minDist
 
 def f_homming(u):
+  global R, RAIO
+
   P = PONTO_DE_PARADA
   #Inicializa o valor de f_homing = 0.0
   fh = 0.0
 	# Verificar a menor distancia entre quaisquer pares de robos no instante zero
-  minDist = min_dist(u, 0, RAIO, R)
+  #minDist = min_dist(u, 0, RAIO, R)
   #startingDist de cada robo
   for t in range(len(u)):
     #dist = [0]*T
     #inicialDist = [1]*T
     # Atualizar minDist neste instante t
-    minDist = min_dist(u, t, RAIO, R)
+    #minDist = min_dist(u, t, RAIO, R)
     dist = distParada(u, P, R, t)
     inicialDist = distancia_inicial(u, P, R, RAIO)
     for r in range(R): # para cada robo
       #print(f'distancias: {inicialDist[r]}, {dist[r]}')
       fh += (inicialDist[r] - dist[r]) / inicialDist[r]
-  S =0.1 +  (max(0, min(5,minDist))*0.9)/5
+  fh = fh / (RtimesT)
+  #S =0.1 +  (max(0, min(5,minDist))*0.9)/5
   # DESCOMENTAR AQUIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
   #fh = fh * S
   return fh
@@ -252,25 +259,25 @@ def distancia(x, y):
 def pos_partida(R, LIMITE_X, LIMITE_Y, THETA_MAX, SPEED_MAX, RAIO): 
   u = [0]*(R*4)
   u[0] = rd.random()*LIMITE_X  # x
-  u[1] =rd.random()*LIMITE_Y  # y
-  u[2] =rd.random()*THETA_MAX #aleatorio de 0 a 2*pi
+  u[1] = rd.random()*LIMITE_Y  # y
+  u[2] = rd.random()*THETA_MAX #aleatorio de 0 a 2*pi
   u[3] = rd.random()*SPEED_MAX #velocidade aleatoria
 
   for r in range(1,R):
-    u[r*4] = rd.random()*LIMITE_X #x
-    u[r*4+1] =rd.random()*LIMITE_Y  # y
+    u[INDEX[r]] = rd.random()*LIMITE_X #x
+    u[INDEX[r]+1] =rd.random()*LIMITE_Y  # y
     dist = [3*RAIO]*R
-    for i in range(r):
+    '''for i in range(r):
       dist[i] = distancia(u[r*4]- u[i*4], u[r*4+1]-u[i*4+1])
     while (min(dist) < TWO_RADIUS):
       u[r*4] = rd.random()*LIMITE_X #x
       u[r*4+1] =rd.random()*LIMITE_Y  # y
       dist = [3*RAIO]*R
       for i in range(r):
-        dist[i] = distancia(u[r*4]- u[i*4], u[r*4+1]-u[i*4+1])
+        dist[i] = distancia(u[r*4]- u[i*4], u[r*4+1]-u[i*4+1])'''
 
-    u[r*4+2] =rd.random()*TWO_PI #aleatorio de 0 a 2*pi
-    u[r*4+3] = rd.random()*SPEED_MAX #velocidade aleatoria
+    u[INDEX[r]+2] =rd.random()*TWO_PI #aleatorio de 0 a 2*pi
+    u[INDEX[r]+3] = rd.random()*SPEED_MAX #velocidade aleatoria
   return u
 
 """Salvando e imprimindo trajetoria"""
@@ -296,7 +303,7 @@ def printTrajetory(u):
   # u[i*3+1]  eh y
   # u[i*3+2]  eh theta
   for i in range(R):
-    plt.plot(u[i*4], u[i*4+1], label=str(i))
+    plt.plot(u[INDEX[i]], u[INDEX[i]+1], label=str(i))
 
   # destino (ponto de parada)
   plt.scatter(PONTO_DE_PARADA[0], PONTO_DE_PARADA[1], marker='X', color='black', s=50)
@@ -318,9 +325,6 @@ def printTrajetory(u):
 def model(t, u, N, net):
   #global global_tt
 
-  #cria uma rede (como eh a mesma para todos, cria-se apenas uma vez)
-  #net = neat.nn.FeedForwardNetwork.create(genome, config)
-
   dudt = []
   #Para cada agente 
   for i in range(N):
@@ -332,17 +336,17 @@ def model(t, u, N, net):
     #  print(net_output)
 
     # Verificar velocidade angular e linear e não deixar o robô ultrapassar o maximo permitido
-    theta_agent_i = u[i*4 + 2]
-    s_i  = u[i*4 + 3]
+    theta_agent_i = u[INDEX[i] + 2]
+    s_i  = u[INDEX[i] + 3]
 
     theta_dot = net_output[0]
     s_dot = net_output[1]
 
     # max angular velocity
-    if theta_dot > 0.6*h:
-      theta_dot = 0.6*h
-    elif theta_dot < -0.6*h:
-      theta_dot = -0.6*h
+    if theta_dot > THETA_DOT_MAX:
+      theta_dot = THETA_DOT_MAX
+    elif theta_dot < -THETA_DOT_MAX:
+      theta_dot = -THETA_DOT_MAX
 
     # max speed
     if s_i + s_dot > SPEED_MAX:
@@ -351,25 +355,26 @@ def model(t, u, N, net):
       s_dot = 0.0
 
     #determina as derivadas com a saida da rede
-    dudt.append(u[i*4+3]*np.cos(u[i*4+2]))
-    dudt.append(u[i*4+3]*np.sin(u[i*4+2]))
+    dudt.append(u[INDEX[i]+3]*np.cos(u[INDEX[i]+2]))
+    dudt.append(u[INDEX[i]+3]*np.sin(u[INDEX[i]+2]))
     dudt.append(theta_dot)
     dudt.append(s_dot)
   return dudt
 
 def simulacao(net): 
-  global global_tt
+  global global_tt, T, N, R, LIMITE_X, LIMITE_Y, THETA_MAX, SPEED_MAX, RAIO
 
 	#Determina posições iniciais dos agentes dentro de uma area delimitada
   #por LIMITE_X e LIMITE_Y
-  u = pos_partida(R, LIMITE_X, LIMITE_Y, THETA_MAX, SPEED_MAX, RAIO)
-  sol = solve_ivp(model, [0, T], u, args=(N, net), dense_output=True)
-  #tempo de integracao: esta funcao gera uma sequencia que inicia em zero e vai ate tf, com passo h
+  u_part = pos_partida(R, LIMITE_X, LIMITE_Y, THETA_MAX, SPEED_MAX, RAIO)
+
   t = ttt
+  sol = solve_ivp(fun=model, t_span=[0, T], y0=u_part, args=(N, net), t_eval=t, dense_output=True, first_step=h)
+  #tempo de integracao: esta funcao gera uma sequencia que inicia em zero e vai ate tf, com passo h
   u = sol.sol(t)
   f = f_homming(u)
 
-  if global_tt % print_percent == 0:
+  if (global_tt % print_percent == 0) or (f > 20.0) or (f < -10):
     #Preenhe arquivo trajectory
     #Trajectory(u, t)
     #Mostra trajetoria
@@ -388,7 +393,6 @@ def eval_genomes(genomes, config):
     #cria uma rede (como eh a mesma para todos, cria-se apenas uma vez)
     net = neat.nn.FeedForwardNetwork.create(genome, config)
     #octantes_new = sensor(u, 0, D_MAX, RAIO, PONTO_DE_PARADA)
-    #output = net.activate(octantes_new)
     genome.fitness = simulacao(net)
     #print(genome_id)
 
@@ -402,13 +406,13 @@ def run(config_file):
   p = neat.Population(config)
 
   # Add a stdout reporter to show progress in the terminal.
-  p.add_reporter(neat.StdOutReporter(True))
-  stats = neat.StatisticsReporter()
-  p.add_reporter(stats)
-  p.add_reporter(neat.Checkpointer(20))
+  #p.add_reporter(neat.StdOutReporter(True))
+  #stats = neat.StatisticsReporter()
+  #p.add_reporter(stats)
+  #p.add_reporter(neat.Checkpointer(20))
 
   # Run for up to 300 generations.
-  winner = p.run(eval_genomes, 2000)
+  winner = p.run(eval_genomes, 10000)
 
   # Save the winner.
   with open('winner-network', 'wb') as f:
