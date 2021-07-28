@@ -31,19 +31,23 @@ THETA_MAX = 2*np.pi #angulo máximo de um agente
 D_MAX = 25 #distancia máxima detectada pelo sensor
 
 
-
-print_percent = 200
-global_tt = 0
-
 # Variables that are used several times
 TWO_PI = 2.0 * np.pi
 PI_OVER_TWO = np.pi/2
 PI_OVER_FOUR = np.pi/4
 TWO_RADIUS = 2*RAIO
+TWO_R = 2*R
 ttt = np.arange(0, T, h)
 RtimesT = R*T
 THETA_DOT_MAX = 0.6*h
 INDEX = np.arange(0,R*4,4)
+
+
+
+
+# Controling output figs
+print_percent = 200
+noffe = 0
 
 
 
@@ -180,7 +184,7 @@ def distancia(x, y):
 def distancia_inicial(u, P, R, RAIO):
 	inicialDist = [0]*R #distancia inicial do robo ao ponto de parada
 	for r in range(R):
-	  inicialDist[r] = distancia(u[0][r*4]-P[0], u[0][r*4+1]-P[1]) - TWO_RADIUS
+	  inicialDist[r] = distancia(u[0][INDEX[r]]-P[0], u[0][INDEX[r]+1]-P[1]) - TWO_RADIUS
 	return inicialDist
 
 #Calcula distancia em um tempo t de cada agente ao ponto de parada
@@ -201,7 +205,7 @@ def min_dist(u, t, RAIO, R):
 		for j in range(R):
 			dx = u[t][INDEX[i]] - u[t][INDEX[j]]
 			dy = u[t][INDEX[i]+1] - u[t][INDEX[j]+1]
-			dist = distancia(dx,dy) - 2*R
+			dist = distancia(dx,dy) - TWO_R
 			if (dist < minDist):
 				minDist = dist
 	return minDist
@@ -277,7 +281,7 @@ def Trajectory(u, t):
   f.close()
 
 def printTrajetory(u):
-  global global_tt
+  global noffe
   # Para cada particula, imprimir suas coordenadas
   # u[i*3]    eh x
   # u[i*3+1]  eh y
@@ -293,7 +297,7 @@ def printTrajetory(u):
   plt.xlabel('x')
   plt.grid()
   #plt.show()
-  plt.savefig('figs/' + str(global_tt) + '_fig.png')
+  plt.savefig('figs/' + str(noffe) + '_fig.png')
   plt.clf()
 
 """Neat + simulação"""
@@ -303,7 +307,7 @@ def printTrajetory(u):
 
 #Função model
 def model(t, u, N, net):
-  #global global_tt
+  #global noffe
 
   dudt = []
   #Para cada agente 
@@ -312,15 +316,16 @@ def model(t, u, N, net):
     octantes_new = sensor(u, i, D_MAX, RAIO, PONTO_DE_PARADA)
     
     net_output = net.activate(octantes_new)
-    #if (global_tt % print_percent == 0) and (i == 0) and (int(t) == 200):
+    #if (noffe % print_percent == 0) and (i == 0) and (int(t) == 200):
     #  print(net_output)
 
-    # Verificar velocidade angular e linear e não deixar o robô ultrapassar o maximo permitido
-    theta_agent_i = u[INDEX[i] + 2]
-    s_i  = u[INDEX[i] + 3]
-
+    # ANN output (angular velocity and acceleration)
     theta_dot = net_output[0]
     s_dot = net_output[1]
+
+    # Preventing the robot physical limits to be trespassed
+    theta_agent_i = u[INDEX[i] + 2]
+    s_i  = u[INDEX[i] + 3]
 
     # max angular velocity
     if theta_dot > THETA_DOT_MAX:
@@ -342,7 +347,7 @@ def model(t, u, N, net):
   return dudt
 
 def simulacao(net): 
-  global global_tt, T, N, R, LIMITE_X, LIMITE_Y, THETA_MAX, SPEED_MAX, RAIO
+  global noffe, T, N, R, LIMITE_X, LIMITE_Y, THETA_MAX, SPEED_MAX, RAIO
 
 	#Determina posições iniciais dos agentes dentro de uma area delimitada
   #por LIMITE_X e LIMITE_Y
@@ -354,14 +359,14 @@ def simulacao(net):
   u = sol.sol(t)
   f = f_homming(u)
 
-  if (global_tt % print_percent == 0) or (f > 20.0) or (f < -10):
+  if (noffe % print_percent == 0) or (f > 20.0) or (f < -10):
     #Preenhe arquivo trajectory
     #Trajectory(u, t)
     #Mostra trajetoria
     printTrajetory(u)
-
-  print(f"global_tt = {global_tt} | f_homming = {f}")
-  global_tt += 1
+  # Number of fitness function evaluations
+  print(f"noffe = {noffe} | f_homming = {f}")
+  noffe += 1
   
   return f
 
@@ -386,13 +391,13 @@ def run(config_file):
   p = neat.Population(config)
 
   # Add a stdout reporter to show progress in the terminal.
-  #p.add_reporter(neat.StdOutReporter(True))
-  #stats = neat.StatisticsReporter()
-  #p.add_reporter(stats)
-  #p.add_reporter(neat.Checkpointer(20))
+  p.add_reporter(neat.StdOutReporter(True))
+  stats = neat.StatisticsReporter()
+  p.add_reporter(stats)
+  p.add_reporter(neat.Checkpointer(20))
 
   # Run for up to 300 generations.
-  winner = p.run(eval_genomes, 10000)
+  winner = p.run(eval_genomes, 2000)
 
   # Save the winner.
   with open('winner-network', 'wb') as f:
