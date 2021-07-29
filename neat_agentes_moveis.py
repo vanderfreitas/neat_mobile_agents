@@ -1,10 +1,11 @@
 # Dependency:
 # pip install neat-python
 
-#from __future__ import print_function
 import os
 import neat
-#import visualize
+import visualize
+
+import multiprocessing
 
 import pickle # to save the genome
 
@@ -46,7 +47,7 @@ INDEX = np.arange(0,R*4,4)
 
 
 # Controling output figs
-print_percent = 200
+print_percent = 100
 noffe = 0
 
 
@@ -365,21 +366,18 @@ def simulacao(net):
     #Mostra trajetoria
     printTrajetory(u)
   # Number of fitness function evaluations
-  print(f"noffe = {noffe} | f_homming = {f}")
+  #print(f"noffe = {noffe} | f_homming = {f}")
   noffe += 1
   
   return f
 
+# This function runs for every genome in parallel
+def eval_genome(genome, config):
+  #cria uma rede (como eh a mesma para todos, cria-se apenas uma vez)
+  net = neat.nn.FeedForwardNetwork.create(genome, config)
+  #octantes_new = sensor(u, 0, D_MAX, RAIO, PONTO_DE_PARADA)
+  return simulacao(net)
 
-def eval_genomes(genomes, config):
-  for genome_id, genome in genomes:
-    #genome.fitness = 0.0
-
-    #cria uma rede (como eh a mesma para todos, cria-se apenas uma vez)
-    net = neat.nn.FeedForwardNetwork.create(genome, config)
-    #octantes_new = sensor(u, 0, D_MAX, RAIO, PONTO_DE_PARADA)
-    genome.fitness = simulacao(net)
-    #print(genome_id)
 
 def run(config_file):
   # Load configuration.
@@ -396,8 +394,11 @@ def run(config_file):
   p.add_reporter(stats)
   p.add_reporter(neat.Checkpointer(20))
 
-  # Run for up to 300 generations.
-  winner = p.run(eval_genomes, 2000)
+  # Run for up to a certain number of generations, in parallel. 
+  # The number of processes depend on the number of available cores.
+  pe = neat.ParallelEvaluator(multiprocessing.cpu_count(), eval_genome)
+  winner = p.run(pe.evaluate, 100)
+  #winner = p.run(eval_genomes, 2000)
 
   # Save the winner.
   with open('winner-network', 'wb') as f:
@@ -406,7 +407,7 @@ def run(config_file):
   # Display the winning genome.
   print('\nBest genome:\n{!s}'.format(winner))
 
-  #visualize.draw_net(config, winner, True)
+  visualize.draw_net(config, winner, True)
     
 if __name__ == '__main__':
   # Determine path to configuration file. This path manipulation is
