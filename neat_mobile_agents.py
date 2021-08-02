@@ -392,7 +392,7 @@ def run(config_file):
   p.add_reporter(neat.StdOutReporter(True))
   stats = neat.StatisticsReporter()
   p.add_reporter(stats)
-  p.add_reporter(neat.Checkpointer(20))
+  p.add_reporter(neat.Checkpointer(5))
 
   # Run for up to a certain number of generations, in parallel. 
   # The number of processes depend on the number of available cores.
